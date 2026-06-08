@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>The Foursome</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0f172a;
+      color: #e2e8f0;
+      font-family: Georgia, serif;
+      min-height: 100vh;
+      padding-bottom: 60px;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #166534 0%, #14532d 60%, #052e16 100%);
+      padding: 32px 24px 28px;
+      border-bottom: 3px solid #22c55e;
+      position: relative;
+      overflow: hidden;
+    }
+    .header::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 80% 20%, rgba(34,197,94,0.15) 0%, transparent 60%);
+    }
+    .header-inner { position: relative; }
+    .header-sub {
+      font-size: 11px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: #86efac;
+      margin-bottom: 6px;
+    }
+    .header h1 {
+      font-size: 28px;
+      font-weight: normal;
+      letter-spacing: 0.04em;
+      color: #f0fdf4;
+    }
+    .header-hint { margin-top: 8px; font-size: 13px; color: #86efac; }
+
+    .section { padding: 20px 16px 8px; }
+    .label {
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: #64748b;
+      margin-bottom: 10px;
+    }
+    .player-btns { display: flex; flex-wrap: wrap; gap: 8px; }
+    .player-btn {
+      padding: 8px 16px;
+      border-radius: 999px;
+      border: 2px solid #1e293b;
+      background: #1e293b;
+      color: #94a3b8;
+      cursor: pointer;
+      font-size: 14px;
+      font-family: Georgia, serif;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s;
+    }
+    .player-btn.active {
+      border-color: #22c55e;
+      background: #166534;
+      color: #f0fdf4;
+    }
+    .player-btn .rank { font-size: 11px; color: #475569; }
+    .player-btn.active .rank { color: #86efac; }
+    .tap-hint { margin-top: 8px; font-size: 12px; color: #4ade80; display: none; }
+
+    .week { padding: 16px 16px 0; }
+    .week-label {
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: #64748b;
+      margin-bottom: 12px;
+    }
+    .days { display: flex; flex-direction: column; gap: 12px; }
+
+    .day-card {
+      background: #1e293b;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid #334155;
+    }
+    .day-card.locked {
+      opacity: 0.5;
+      filter: grayscale(40%);
+    }
+    .day-card.next-up {
+      border-color: #22c55e;
+      box-shadow: 0 0 0 1px #22c55e33;
+    }
+
+    .locked-badge {
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #64748b;
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 999px;
+      padding: 2px 8px;
+    }
+    .next-badge {
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #4ade80;
+      background: rgba(34,197,94,0.12);
+      border: 1px solid rgba(34,197,94,0.3);
+      border-radius: 999px;
+      padding: 2px 8px;
+    }
+
+    .day-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      background: #1a2942;
+      border-bottom: 1px solid #334155;
+    }
+    .day-title { font-weight: bold; font-size: 15px; color: #f1f5f9; }
+    .day-date { margin-left: 8px; font-size: 13px; color: #64748b; }
+    .day-meta { display: flex; align-items: center; gap: 8px; }
+    .day-count { font-size: 12px; color: #64748b; }
+    .day-count.full { color: #4ade80; }
+
+    .toggle-btn {
+      padding: 5px 14px;
+      border-radius: 999px;
+      background: #0f172a;
+      color: #64748b;
+      cursor: pointer;
+      font-size: 12px;
+      font-family: Georgia, serif;
+      border: 1px solid #334155;
+      transition: all 0.15s;
+      display: none;
+    }
+    .toggle-btn.active-in {
+      background: #166534;
+      color: #4ade80;
+      border-color: #22c55e;
+    }
+
+    .players-grid { padding: 10px 16px 14px; }
+    .player-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .chip {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      background: rgba(15,23,42,0.6);
+      border: 1px solid #1e293b;
+    }
+    .chip.in-four {
+      background: rgba(74,222,128,0.12);
+      border-color: rgba(74,222,128,0.3);
+    }
+    .chip.bumped {
+      background: rgba(250,204,21,0.1);
+      border-color: rgba(250,204,21,0.25);
+    }
+    .chip-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: #334155;
+      flex-shrink: 0;
+    }
+    .chip.in-four .chip-dot { background: #4ade80; }
+    .chip.bumped .chip-dot { background: #facc15; }
+    .chip-name { font-size: 13px; color: #475569; }
+    .chip.in-four .chip-name { color: #f0fdf4; }
+    .chip.bumped .chip-name { color: #fef08a; }
+    .chip-name.me { font-style: italic; }
+    .bump-label { font-size: 10px; color: #d97706; }
+
+    .summary {
+      margin-top: 10px;
+      font-size: 12px;
+      color: #64748b;
+      border-top: 1px solid #1e293b;
+      padding-top: 8px;
+    }
+    .summary .foursome-label { color: #4ade80; }
+    .summary .bumped-label { color: #d97706; }
+
+    .footer {
+      padding: 24px 16px 0;
+      text-align: center;
+      font-size: 11px;
+      color: #334155;
+      letter-spacing: 0.1em;
+    }
+
+    .overlay {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      font-size: 15px;
+      color: #64748b;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════
+     CONFIGURATION — fill in your JSONBin details
+     ═══════════════════════════════════════════ -->
+<script>
+  const JSONBIN_API_KEY = "$2a$10$Kvd8UehpVRwWwke2zSkFeepA0RGwYC6JRsUIKtHz9nhe1cAJ0wycC";
+  const JSONBIN_BIN_ID  = "6a270c31f5f4af5e29cd09f8";
+</script>
+<!-- ═══════════════════════════════════════════ -->
+
+<script>
+  const PLAYERS = ["Aidan", "Dave", "John", "Derrick", "Rob", "Julio"];
+
+  // Golf days: Tuesday (dow=2) and Thursday (dow=4) only.
+  // Lock rule: each golf day locks at 7:00am PT, 5 calendar days before.
+  //   Tuesday  locks Thursday 7am  (Thu + 5 = Tue)
+  //   Thursday locks Saturday 7am  (Sat + 5 = Thu)
+  const GOLF_DAYS = [2, 4]; // JS day-of-week: 2=Tue, 4=Thu
+  const GOLF_DAY_NAMES = { 2: "Tuesday", 4: "Thursday" };
+  const BOOKING_DAYS_AHEAD = 5;
+  const BOOKING_HOUR_PT    = 7;
+  const WEEKS_AHEAD        = 8;
+
+  let availability   = {};
+  let selectedPlayer = null;
+  let saving         = false;
+
+  // ── Pacific time helpers ─────────────────────
+  function nowPT() {
+    const now   = new Date();
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/Los_Angeles",
+      year: "numeric", month: "2-digit", day: "2-digit",
+      hour: "2-digit", minute: "2-digit", hour12: false
+    }).formatToParts(now);
+    const get = t => parseInt(parts.find(p => p.type === t).value);
+    return { year: get("year"), month: get("month"), day: get("day"), hour: get("hour") };
+  }
+
+  function daysBetween(a, b) {
+    // a, b: { year, month, day }
+    const da = new Date(a.year, a.month - 1, a.day);
+    const db = new Date(b.year, b.month - 1, b.day);
+    return Math.round((db - da) / 86400000);
+  }
+
+  function isLocked(golfDate) {
+    // golfDate is a plain JS Date (local midnight)
+    const pt = nowPT();
+    const gd = { year: golfDate.getFullYear(), month: golfDate.getMonth() + 1, day: golfDate.getDate() };
+    const diff = daysBetween(pt, gd); // positive = golf date is in the future
+    if (diff > BOOKING_DAYS_AHEAD) return false;
+    if (diff === BOOKING_DAYS_AHEAD) return pt.hour >= BOOKING_HOUR_PT;
+    return true; // past deadline
+  }
+
+  // ── Build schedule ───────────────────────────
+  function getSchedule() {
+    const pt    = nowPT();
+    const today = new Date(pt.year, pt.month - 1, pt.day);
+
+    // Collect all Tue/Thu dates over the next WEEKS_AHEAD weeks
+    const allDays = [];
+    for (let offset = 0; offset < WEEKS_AHEAD * 7 + 7; offset++) {
+      const d = new Date(today);
+      d.setDate(today.getDate() + offset);
+      const dow = d.getDay();
+      if (!GOLF_DAYS.includes(dow)) continue;
+      const gd = { year: d.getFullYear(), month: d.getMonth() + 1, day: d.getDate() };
+      if (daysBetween(pt, gd) < 0) continue; // skip past dates
+      allDays.push({ date: d, dayName: GOLF_DAY_NAMES[dow], key: d.toISOString().slice(0, 10) });
+    }
+
+    // Limit to WEEKS_AHEAD weeks from the first non-locked date
+    const firstUnlocked = allDays.find(d => !isLocked(d.date));
+    let cutoff = null;
+    if (firstUnlocked) {
+      cutoff = new Date(firstUnlocked.date);
+      cutoff.setDate(cutoff.getDate() + WEEKS_AHEAD * 7);
+    }
+
+    const visible = allDays.filter(d => !cutoff || d.date <= cutoff);
+    const nextBookableKey = firstUnlocked?.key;
+    return { days: visible, nextBookableKey };
+  }
+
+  function fmtDate(d) {
+    return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  }
+
+  // ── Foursome logic ───────────────────────────
+  function getForDate(key) {
+    const avail  = availability[key] || {};
+    const ins    = PLAYERS.filter(p => avail[p]);
+    const four   = ins.slice(0, 4);
+    const bumped = ins.slice(4);
+    return { four, bumped };
+  }
+
+  // ── JSONBin I/O ──────────────────────────────
+  async function loadData() {
+    try {
+      const r = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}/latest`, {
+        headers: { "X-Master-Key": JSONBIN_API_KEY }
+      });
+      if (!r.ok) throw new Error(r.status);
+      const j = await r.json();
+      availability = j.record || {};
+    } catch (e) {
+      console.error("Load failed", e);
+    }
+  }
+
+  async function saveData() {
+    saving = true;
+    updateFooter();
+    try {
+      await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Master-Key": JSONBIN_API_KEY
+        },
+        body: JSON.stringify(availability)
+      });
+    } catch (e) {
+      console.error("Save failed", e);
+    }
+    saving = false;
+    updateFooter();
+  }
+
+  // ── Render ───────────────────────────────────
+  function render() {
+    const app = document.getElementById("app");
+    app.innerHTML = "";
+
+    // Header
+    const hdr = document.createElement("div");
+    hdr.className = "header";
+    hdr.innerHTML = `
+      <div class="header-inner">
+        <div class="header-sub">⛳ Tuesday · Thursday</div>
+        <h1>The Foursome</h1>
+        <div class="header-hint">Mark yourself in for the days you can play</div>
+      </div>`;
+    app.appendChild(hdr);
+
+    // Player selector
+    const playerSection = document.createElement("div");
+    playerSection.className = "section";
+    playerSection.innerHTML = `<div class="label">I am...</div>`;
+    const btns = document.createElement("div");
+    btns.className = "player-btns";
+    PLAYERS.forEach((p, i) => {
+      const b = document.createElement("button");
+      b.className = "player-btn" + (p === selectedPlayer ? " active" : "");
+      b.innerHTML = `<span class="rank">#${i + 1}</span>${p}`;
+      b.onclick = () => { selectedPlayer = selectedPlayer === p ? null : p; render(); };
+      btns.appendChild(b);
+    });
+    playerSection.appendChild(btns);
+    const hint = document.createElement("div");
+    hint.className = "tap-hint";
+    hint.textContent = "Tap a day below to toggle your availability";
+    if (selectedPlayer) hint.style.display = "block";
+    playerSection.appendChild(hint);
+    app.appendChild(playerSection);
+
+    // Schedule — group into weeks (pair of Tue+Thu)
+    const { days, nextBookableKey } = getSchedule();
+
+    // Group by week: start a new group each time we hit a Tuesday
+    const weeks = [];
+    let current = [];
+    days.forEach(d => {
+      if (d.dayName === "Tuesday" && current.length) { weeks.push(current); current = []; }
+      current.push(d);
+    });
+    if (current.length) weeks.push(current);
+
+    weeks.forEach(weekDays => {
+      const weekDiv = document.createElement("div");
+      weekDiv.className = "week";
+      // Label the week by its Tuesday date (or first date if week starts mid)
+      const tue = weekDays.find(d => d.dayName === "Tuesday") || weekDays[0];
+      weekDiv.innerHTML = `<div class="week-label">Week of ${fmtDate(tue.date)}</div>`;
+      const daysDiv = document.createElement("div");
+      daysDiv.className = "days";
+
+      weekDays.forEach(({ date, dayName, key }) => {
+        const locked  = isLocked(date);
+        const isNext  = key === nextBookableKey;
+        const { four, bumped } = getForDate(key);
+        const isMyDay = selectedPlayer && availability[key]?.[selectedPlayer];
+
+        const card = document.createElement("div");
+        card.className = "day-card" + (locked ? " locked" : "") + (isNext ? " next-up" : "");
+
+        const full      = four.length >= 4;
+        const countText = `${four.length}/4${bumped.length ? ` · ${bumped.length} bump` : ""}`;
+        const badgeHTML = locked
+          ? `<span class="locked-badge">🔒 Locked</span>`
+          : isNext ? `<span class="next-badge">▶ Book today</span>` : "";
+
+        card.innerHTML = `
+          <div class="day-header">
+            <div>
+              <span class="day-title">${dayName}</span>
+              <span class="day-date">${fmtDate(date)}</span>
+            </div>
+            <div class="day-meta">
+              ${badgeHTML}
+              <span class="day-count${full ? " full" : ""}">${countText}</span>
+              <button class="toggle-btn${isMyDay ? " active-in" : ""}" data-key="${key}">
+                ${isMyDay ? "✓ I'm in" : "+ I'm in"}
+              </button>
+            </div>
+          </div>`;
+
+        const toggleBtn = card.querySelector(".toggle-btn");
+        if (selectedPlayer && !locked) toggleBtn.style.display = "inline-block";
+        toggleBtn.onclick = () => { if (!locked) toggleDay(selectedPlayer, key); };
+
+        // Players grid
+        const grid = document.createElement("div");
+        grid.className = "players-grid";
+        const chips = document.createElement("div");
+        chips.className = "player-chips";
+
+        PLAYERS.forEach(p => {
+          const inFour   = four.includes(p);
+          const isBumped = bumped.includes(p);
+          const chip = document.createElement("div");
+          chip.className = "chip" + (inFour ? " in-four" : isBumped ? " bumped" : "");
+          chip.innerHTML = `
+            <span class="chip-dot"></span>
+            <span class="chip-name${p === selectedPlayer ? " me" : ""}">${p}</span>
+            ${isBumped ? '<span class="bump-label">bump</span>' : ""}`;
+          chips.appendChild(chip);
+        });
+        grid.appendChild(chips);
+
+        if (four.length > 0) {
+          const sumDiv = document.createElement("div");
+          sumDiv.className = "summary";
+          if (four.length === 4) {
+            sumDiv.innerHTML = `<span class="foursome-label">Foursome: </span>${four.join(", ")}` +
+              (bumped.length ? ` <span class="bumped-label">· ${bumped.join(", ")} need own tee time</span>` : "");
+          } else {
+            sumDiv.textContent = `Need ${4 - four.length} more`;
+          }
+          grid.appendChild(sumDiv);
+        }
+
+        card.appendChild(grid);
+        daysDiv.appendChild(card);
+      });
+
+      weekDiv.appendChild(daysDiv);
+      app.appendChild(weekDiv);
+    });
+
+    const foot = document.createElement("div");
+    foot.className = "footer";
+    foot.id = "footer";
+    foot.textContent = "Changes saved automatically";
+    app.appendChild(foot);
+  }
+
+  function updateFooter() {
+    const f = document.getElementById("footer");
+    if (f) f.textContent = saving ? "Saving..." : "Changes saved automatically";
+  }
+
+  async function toggleDay(player, key) {
+    if (!player) return;
+    if (!availability[key]) availability[key] = {};
+    availability[key][player] = !availability[key][player];
+    render();
+    await saveData();
+  }
+
+  // ── Boot ─────────────────────────────────────
+  async function init() {
+    document.getElementById("app").innerHTML = `<div class="overlay">Loading...</div>`;
+
+    if (JSONBIN_API_KEY === "PASTE_YOUR_API_KEY_HERE" || JSONBIN_BIN_ID === "PASTE_YOUR_BIN_ID_HERE") {
+      document.getElementById("app").innerHTML = `
+        <div class="overlay" style="flex-direction:column;gap:12px;padding:24px;text-align:center">
+          <div style="font-size:18px;color:#f87171">⚠️ Setup needed</div>
+          <div style="font-size:13px;color:#94a3b8;max-width:300px">
+            Open this file and replace the two placeholder values near the top
+            with your JSONBin API key and Bin ID.
+          </div>
+        </div>`;
+      return;
+    }
+
+    await loadData();
+    render();
+  }
+
+  document.addEventListener("DOMContentLoaded", init);
+</script>
+
+<div id="app"></div>
+</body>
+</html>
