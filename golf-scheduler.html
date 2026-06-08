@@ -49,32 +49,65 @@
       font-size: 11px;
       letter-spacing: 0.15em;
       text-transform: uppercase;
-      color: #64748b;
+      color: #94a3b8;
       margin-bottom: 10px;
     }
-    .player-btns { display: flex; flex-wrap: wrap; gap: 8px; }
+    .player-btns { display: flex; flex-wrap: wrap; gap: 10px; }
+
+    /* Player buttons — bold, yellow, pulsing until selected */
     .player-btn {
-      padding: 8px 16px;
+      padding: 9px 18px;
       border-radius: 999px;
-      border: 2px solid #1e293b;
+      border: 2.5px solid #facc15;
       background: #1e293b;
-      color: #94a3b8;
+      color: #fde047;
       cursor: pointer;
-      font-size: 14px;
+      font-size: 15px;
       font-family: Georgia, serif;
       display: flex;
       align-items: center;
       gap: 6px;
-      transition: all 0.15s;
+      transition: all 0.2s;
+      animation: pulse-border 1.8s ease-in-out infinite;
+    }
+    @keyframes pulse-border {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(250,204,21,0.5); border-color: #facc15; }
+      50%       { box-shadow: 0 0 0 6px rgba(250,204,21,0); border-color: #fde047; }
     }
     .player-btn.active {
       border-color: #22c55e;
       background: #166534;
       color: #f0fdf4;
+      animation: none;
+      box-shadow: none;
     }
-    .player-btn .rank { font-size: 11px; color: #475569; }
+    .player-btn .rank { font-size: 11px; color: #a16207; }
     .player-btn.active .rank { color: #86efac; }
-    .tap-hint { margin-top: 8px; font-size: 12px; color: #4ade80; display: none; }
+    /* Once any player is selected, stop pulsing unselected buttons too */
+    .player-selected .player-btn:not(.active) {
+      animation: none;
+      border-color: #854d0e;
+      color: #ca8a04;
+    }
+
+    .tap-hint { margin-top: 10px; font-size: 13px; color: #4ade80; display: none; }
+
+    /* Show locked toggle */
+    .locked-toggle-wrap {
+      padding: 12px 16px 0;
+    }
+    .locked-toggle-btn {
+      background: none;
+      border: 1px solid #334155;
+      color: #64748b;
+      font-size: 12px;
+      font-family: Georgia, serif;
+      padding: 5px 12px;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .locked-toggle-btn:hover { border-color: #475569; color: #94a3b8; }
 
     .week { padding: 16px 16px 0; }
     .week-label {
@@ -93,7 +126,7 @@
       border: 1px solid #334155;
     }
     .day-card.locked {
-      opacity: 0.5;
+      opacity: 0.45;
       filter: grayscale(40%);
     }
     .day-card.next-up {
@@ -228,12 +261,7 @@
 
 <script>
   const PLAYERS = ["Aidan", "Dave", "John", "Derrick", "Rob", "Julio"];
-
-  // Golf days: Tuesday (dow=2) and Thursday (dow=4) only.
-  // Lock rule: each golf day locks at 7:00am PT, 5 calendar days before.
-  //   Tuesday  locks Thursday 7am  (Thu + 5 = Tue)
-  //   Thursday locks Saturday 7am  (Sat + 5 = Thu)
-  const GOLF_DAYS = [2, 4]; // JS day-of-week: 2=Tue, 4=Thu
+  const GOLF_DAYS      = [2, 4]; // Tue, Thu
   const GOLF_DAY_NAMES = { 2: "Tuesday", 4: "Thursday" };
   const BOOKING_DAYS_AHEAD = 5;
   const BOOKING_HOUR_PT    = 7;
@@ -242,8 +270,9 @@
   let availability   = {};
   let selectedPlayer = null;
   let saving         = false;
+  let showLocked     = false;
 
-  // ── Pacific time helpers ─────────────────────
+  // ── Pacific time ─────────────────────────────
   function nowPT() {
     const now   = new Date();
     const parts = new Intl.DateTimeFormat("en-US", {
@@ -256,28 +285,25 @@
   }
 
   function daysBetween(a, b) {
-    // a, b: { year, month, day }
     const da = new Date(a.year, a.month - 1, a.day);
     const db = new Date(b.year, b.month - 1, b.day);
     return Math.round((db - da) / 86400000);
   }
 
   function isLocked(golfDate) {
-    // golfDate is a plain JS Date (local midnight)
     const pt = nowPT();
     const gd = { year: golfDate.getFullYear(), month: golfDate.getMonth() + 1, day: golfDate.getDate() };
-    const diff = daysBetween(pt, gd); // positive = golf date is in the future
+    const diff = daysBetween(pt, gd);
     if (diff > BOOKING_DAYS_AHEAD) return false;
     if (diff === BOOKING_DAYS_AHEAD) return pt.hour >= BOOKING_HOUR_PT;
-    return true; // past deadline
+    return true;
   }
 
-  // ── Build schedule ───────────────────────────
+  // ── Schedule ─────────────────────────────────
   function getSchedule() {
     const pt    = nowPT();
     const today = new Date(pt.year, pt.month - 1, pt.day);
 
-    // Collect all Tue/Thu dates over the next WEEKS_AHEAD weeks
     const allDays = [];
     for (let offset = 0; offset < WEEKS_AHEAD * 7 + 7; offset++) {
       const d = new Date(today);
@@ -285,11 +311,10 @@
       const dow = d.getDay();
       if (!GOLF_DAYS.includes(dow)) continue;
       const gd = { year: d.getFullYear(), month: d.getMonth() + 1, day: d.getDate() };
-      if (daysBetween(pt, gd) < 0) continue; // skip past dates
+      if (daysBetween(pt, gd) < 0) continue;
       allDays.push({ date: d, dayName: GOLF_DAY_NAMES[dow], key: d.toISOString().slice(0, 10) });
     }
 
-    // Limit to WEEKS_AHEAD weeks from the first non-locked date
     const firstUnlocked = allDays.find(d => !isLocked(d.date));
     let cutoff = null;
     if (firstUnlocked) {
@@ -298,15 +323,13 @@
     }
 
     const visible = allDays.filter(d => !cutoff || d.date <= cutoff);
-    const nextBookableKey = firstUnlocked?.key;
-    return { days: visible, nextBookableKey };
+    return { days: visible, nextBookableKey: firstUnlocked?.key };
   }
 
   function fmtDate(d) {
     return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
   }
 
-  // ── Foursome logic ───────────────────────────
   function getForDate(key) {
     const avail  = availability[key] || {};
     const ins    = PLAYERS.filter(p => avail[p]);
@@ -315,7 +338,7 @@
     return { four, bumped };
   }
 
-  // ── JSONBin I/O ──────────────────────────────
+  // ── JSONBin ──────────────────────────────────
   async function loadData() {
     try {
       const r = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}/latest`, {
@@ -324,28 +347,19 @@
       if (!r.ok) throw new Error(r.status);
       const j = await r.json();
       availability = j.record || {};
-    } catch (e) {
-      console.error("Load failed", e);
-    }
+    } catch (e) { console.error("Load failed", e); }
   }
 
   async function saveData() {
-    saving = true;
-    updateFooter();
+    saving = true; updateFooter();
     try {
       await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`, {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Master-Key": JSONBIN_API_KEY
-        },
+        headers: { "Content-Type": "application/json", "X-Master-Key": JSONBIN_API_KEY },
         body: JSON.stringify(availability)
       });
-    } catch (e) {
-      console.error("Save failed", e);
-    }
-    saving = false;
-    updateFooter();
+    } catch (e) { console.error("Save failed", e); }
+    saving = false; updateFooter();
   }
 
   // ── Render ───────────────────────────────────
@@ -367,9 +381,9 @@
     // Player selector
     const playerSection = document.createElement("div");
     playerSection.className = "section";
-    playerSection.innerHTML = `<div class="label">I am...</div>`;
+    playerSection.innerHTML = `<div class="label">👇 First, tap your name...</div>`;
     const btns = document.createElement("div");
-    btns.className = "player-btns";
+    btns.className = "player-btns" + (selectedPlayer ? " player-selected" : "");
     PLAYERS.forEach((p, i) => {
       const b = document.createElement("button");
       b.className = "player-btn" + (p === selectedPlayer ? " active" : "");
@@ -380,18 +394,34 @@
     playerSection.appendChild(btns);
     const hint = document.createElement("div");
     hint.className = "tap-hint";
-    hint.textContent = "Tap a day below to toggle your availability";
+    hint.textContent = "Now tap a day below to toggle your availability";
     if (selectedPlayer) hint.style.display = "block";
     playerSection.appendChild(hint);
     app.appendChild(playerSection);
 
-    // Schedule — group into weeks (pair of Tue+Thu)
+    // Show locked toggle
     const { days, nextBookableKey } = getSchedule();
+    const lockedDays = days.filter(d => isLocked(d.date));
+    if (lockedDays.length > 0) {
+      const toggleWrap = document.createElement("div");
+      toggleWrap.className = "locked-toggle-wrap";
+      const toggleBtn = document.createElement("button");
+      toggleBtn.className = "locked-toggle-btn";
+      toggleBtn.textContent = showLocked
+        ? `▲ Hide locked days (${lockedDays.length})`
+        : `▼ Show locked days (${lockedDays.length})`;
+      toggleBtn.onclick = () => { showLocked = !showLocked; render(); };
+      toggleWrap.appendChild(toggleBtn);
+      app.appendChild(toggleWrap);
+    }
 
-    // Group by week: start a new group each time we hit a Tuesday
+    // Filter days based on showLocked
+    const visibleDays = days.filter(d => showLocked || !isLocked(d.date));
+
+    // Group into weeks
     const weeks = [];
     let current = [];
-    days.forEach(d => {
+    visibleDays.forEach(d => {
       if (d.dayName === "Tuesday" && current.length) { weeks.push(current); current = []; }
       current.push(d);
     });
@@ -400,7 +430,6 @@
     weeks.forEach(weekDays => {
       const weekDiv = document.createElement("div");
       weekDiv.className = "week";
-      // Label the week by its Tuesday date (or first date if week starts mid)
       const tue = weekDays.find(d => d.dayName === "Tuesday") || weekDays[0];
       weekDiv.innerHTML = `<div class="week-label">Week of ${fmtDate(tue.date)}</div>`;
       const daysDiv = document.createElement("div");
@@ -440,7 +469,6 @@
         if (selectedPlayer && !locked) toggleBtn.style.display = "inline-block";
         toggleBtn.onclick = () => { if (!locked) toggleDay(selectedPlayer, key); };
 
-        // Players grid
         const grid = document.createElement("div");
         grid.className = "players-grid";
         const chips = document.createElement("div");
@@ -499,7 +527,6 @@
     await saveData();
   }
 
-  // ── Boot ─────────────────────────────────────
   async function init() {
     document.getElementById("app").innerHTML = `<div class="overlay">Loading...</div>`;
 
