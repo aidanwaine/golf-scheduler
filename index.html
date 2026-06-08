@@ -54,7 +54,6 @@
     }
     .player-btns { display: flex; flex-wrap: wrap; gap: 10px; }
 
-    /* Player buttons — bold, yellow, pulsing until selected */
     .player-btn {
       padding: 9px 18px;
       border-radius: 999px;
@@ -83,7 +82,6 @@
     }
     .player-btn .rank { font-size: 11px; color: #a16207; }
     .player-btn.active .rank { color: #86efac; }
-    /* Once any player is selected, stop pulsing unselected buttons too */
     .player-selected .player-btn:not(.active) {
       animation: none;
       border-color: #854d0e;
@@ -92,10 +90,7 @@
 
     .tap-hint { margin-top: 10px; font-size: 13px; color: #4ade80; display: none; }
 
-    /* Show locked toggle */
-    .locked-toggle-wrap {
-      padding: 12px 16px 0;
-    }
+    .locked-toggle-wrap { padding: 12px 16px 0; }
     .locked-toggle-btn {
       background: none;
       border: 1px solid #334155;
@@ -129,10 +124,38 @@
       opacity: 0.45;
       filter: grayscale(40%);
     }
-    .day-card.next-up {
-      border-color: #22c55e;
-      box-shadow: 0 0 0 1px #22c55e33;
+
+    /* Day header — clickable when not locked and player selected */
+    .day-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      background: #1a2942;
+      border-bottom: 1px solid #334155;
+      transition: background 0.15s;
     }
+    .day-header.clickable {
+      cursor: pointer;
+      user-select: none;
+    }
+    .day-header.clickable:hover {
+      background: #1e3a5f;
+    }
+    /* Highlight the day header when the current player is "in" */
+    .day-header.i-am-in {
+      background: #14532d;
+      border-bottom-color: #166534;
+    }
+    .day-header.i-am-in:hover {
+      background: #166534;
+    }
+
+    .day-title { font-weight: bold; font-size: 15px; color: #f1f5f9; }
+    .day-date { margin-left: 8px; font-size: 13px; color: #64748b; }
+    .day-meta { display: flex; align-items: center; gap: 8px; }
+    .day-count { font-size: 12px; color: #64748b; }
+    .day-count.full { color: #4ade80; }
 
     .locked-badge {
       font-size: 10px;
@@ -144,47 +167,21 @@
       border-radius: 999px;
       padding: 2px 8px;
     }
-    .next-badge {
-      font-size: 10px;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: #4ade80;
-      background: rgba(34,197,94,0.12);
-      border: 1px solid rgba(34,197,94,0.3);
-      border-radius: 999px;
-      padding: 2px 8px;
-    }
 
-    .day-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 12px 16px;
-      background: #1a2942;
-      border-bottom: 1px solid #334155;
-    }
-    .day-title { font-weight: bold; font-size: 15px; color: #f1f5f9; }
-    .day-date { margin-left: 8px; font-size: 13px; color: #64748b; }
-    .day-meta { display: flex; align-items: center; gap: 8px; }
-    .day-count { font-size: 12px; color: #64748b; }
-    .day-count.full { color: #4ade80; }
-
-    .toggle-btn {
-      padding: 5px 14px;
-      border-radius: 999px;
-      background: #0f172a;
-      color: #64748b;
-      cursor: pointer;
+    /* In/out indicator shown in header when player selected */
+    .in-indicator {
       font-size: 12px;
       font-family: Georgia, serif;
+      padding: 3px 10px;
+      border-radius: 999px;
       border: 1px solid #334155;
-      transition: all 0.15s;
-      display: none;
+      color: #64748b;
+      background: #0f172a;
     }
-    .toggle-btn.active-in {
-      background: #166534;
-      color: #4ade80;
+    .in-indicator.in {
       border-color: #22c55e;
+      color: #4ade80;
+      background: rgba(34,197,94,0.1);
     }
 
     .players-grid { padding: 10px 16px 14px; }
@@ -206,6 +203,11 @@
       background: rgba(250,204,21,0.1);
       border-color: rgba(250,204,21,0.25);
     }
+    /* Extra highlight for the selected player's own chip when they're in */
+    .chip.in-four.is-me {
+      background: rgba(74,222,128,0.25);
+      border-color: #22c55e;
+    }
     .chip-dot {
       width: 7px; height: 7px;
       border-radius: 50%;
@@ -217,7 +219,7 @@
     .chip-name { font-size: 13px; color: #475569; }
     .chip.in-four .chip-name { color: #f0fdf4; }
     .chip.bumped .chip-name { color: #fef08a; }
-    .chip-name.me { font-style: italic; }
+    .chip-name.me { font-style: italic; font-weight: bold; }
     .bump-label { font-size: 10px; color: #d97706; }
 
     .summary {
@@ -254,14 +256,14 @@
      CONFIGURATION — fill in your JSONBin details
      ═══════════════════════════════════════════ -->
 <script>
-  const JSONBIN_API_KEY = "$2a$10$Kvd8UehpVRwWwke2zSkFeepA0RGwYC6JRsUIKtHz9nhe1cAJ0wycC";
-  const JSONBIN_BIN_ID  = "6a270c31f5f4af5e29cd09f8";
+  const JSONBIN_API_KEY = "PASTE_YOUR_API_KEY_HERE";
+  const JSONBIN_BIN_ID  = "PASTE_YOUR_BIN_ID_HERE";
 </script>
 <!-- ═══════════════════════════════════════════ -->
 
 <script>
-  const PLAYERS = ["Aidan", "Dave", "John", "Derrick", "Rob", "Julio"];
-  const GOLF_DAYS      = [2, 4]; // Tue, Thu
+  const PLAYERS        = ["Aidan", "Dave", "John", "Derrick", "Rob", "Julio"];
+  const GOLF_DAYS      = [2, 4];
   const GOLF_DAY_NAMES = { 2: "Tuesday", 4: "Thursday" };
   const BOOKING_DAYS_AHEAD = 5;
   const BOOKING_HOUR_PT    = 7;
@@ -272,7 +274,6 @@
   let saving         = false;
   let showLocked     = false;
 
-  // ── Pacific time ─────────────────────────────
   function nowPT() {
     const now   = new Date();
     const parts = new Intl.DateTimeFormat("en-US", {
@@ -299,11 +300,9 @@
     return true;
   }
 
-  // ── Schedule ─────────────────────────────────
   function getSchedule() {
     const pt    = nowPT();
     const today = new Date(pt.year, pt.month - 1, pt.day);
-
     const allDays = [];
     for (let offset = 0; offset < WEEKS_AHEAD * 7 + 7; offset++) {
       const d = new Date(today);
@@ -314,16 +313,14 @@
       if (daysBetween(pt, gd) < 0) continue;
       allDays.push({ date: d, dayName: GOLF_DAY_NAMES[dow], key: d.toISOString().slice(0, 10) });
     }
-
     const firstUnlocked = allDays.find(d => !isLocked(d.date));
     let cutoff = null;
     if (firstUnlocked) {
       cutoff = new Date(firstUnlocked.date);
       cutoff.setDate(cutoff.getDate() + WEEKS_AHEAD * 7);
     }
-
     const visible = allDays.filter(d => !cutoff || d.date <= cutoff);
-    return { days: visible, nextBookableKey: firstUnlocked?.key };
+    return { days: visible };
   }
 
   function fmtDate(d) {
@@ -338,7 +335,6 @@
     return { four, bumped };
   }
 
-  // ── JSONBin ──────────────────────────────────
   async function loadData() {
     try {
       const r = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}/latest`, {
@@ -362,7 +358,6 @@
     saving = false; updateFooter();
   }
 
-  // ── Render ───────────────────────────────────
   function render() {
     const app = document.getElementById("app");
     app.innerHTML = "";
@@ -394,13 +389,13 @@
     playerSection.appendChild(btns);
     const hint = document.createElement("div");
     hint.className = "tap-hint";
-    hint.textContent = "Now tap a day below to toggle your availability";
+    hint.textContent = "Now tap a date below to toggle your availability";
     if (selectedPlayer) hint.style.display = "block";
     playerSection.appendChild(hint);
     app.appendChild(playerSection);
 
     // Show locked toggle
-    const { days, nextBookableKey } = getSchedule();
+    const { days } = getSchedule();
     const lockedDays = days.filter(d => isLocked(d.date));
     if (lockedDays.length > 0) {
       const toggleWrap = document.createElement("div");
@@ -415,7 +410,6 @@
       app.appendChild(toggleWrap);
     }
 
-    // Filter days based on showLocked
     const visibleDays = days.filter(d => showLocked || !isLocked(d.date));
 
     // Group into weeks
@@ -437,38 +431,44 @@
 
       weekDays.forEach(({ date, dayName, key }) => {
         const locked  = isLocked(date);
-        const isNext  = key === nextBookableKey;
         const { four, bumped } = getForDate(key);
-        const isMyDay = selectedPlayer && availability[key]?.[selectedPlayer];
+        const isMyDay = !!(selectedPlayer && availability[key]?.[selectedPlayer]);
 
         const card = document.createElement("div");
-        card.className = "day-card" + (locked ? " locked" : "") + (isNext ? " next-up" : "");
+        card.className = "day-card" + (locked ? " locked" : "");
 
+        // Day header
         const full      = four.length >= 4;
         const countText = `${four.length}/4${bumped.length ? ` · ${bumped.length} bump` : ""}`;
-        const badgeHTML = locked
-          ? `<span class="locked-badge">🔒 Locked</span>`
-          : isNext ? `<span class="next-badge">▶ Book today</span>` : "";
 
-        card.innerHTML = `
-          <div class="day-header">
-            <div>
-              <span class="day-title">${dayName}</span>
-              <span class="day-date">${fmtDate(date)}</span>
-            </div>
-            <div class="day-meta">
-              ${badgeHTML}
-              <span class="day-count${full ? " full" : ""}">${countText}</span>
-              <button class="toggle-btn${isMyDay ? " active-in" : ""}" data-key="${key}">
-                ${isMyDay ? "✓ I'm in" : "+ I'm in"}
-              </button>
-            </div>
+        const header = document.createElement("div");
+        let headerClass = "day-header";
+        if (!locked && selectedPlayer) headerClass += " clickable";
+        if (!locked && isMyDay) headerClass += " i-am-in";
+        header.className = headerClass;
+
+        // In/out indicator (only when player selected and not locked)
+        const indicatorHTML = (!locked && selectedPlayer)
+          ? `<span class="in-indicator${isMyDay ? " in" : ""}">${isMyDay ? "✓ I'm in" : "Tap to join"}</span>`
+          : locked ? `<span class="locked-badge">🔒 Locked</span>` : "";
+
+        header.innerHTML = `
+          <div>
+            <span class="day-title">${dayName}</span>
+            <span class="day-date">${fmtDate(date)}</span>
+          </div>
+          <div class="day-meta">
+            ${indicatorHTML}
+            <span class="day-count${full ? " full" : ""}">${countText}</span>
           </div>`;
 
-        const toggleBtn = card.querySelector(".toggle-btn");
-        if (selectedPlayer && !locked) toggleBtn.style.display = "inline-block";
-        toggleBtn.onclick = () => { if (!locked) toggleDay(selectedPlayer, key); };
+        if (!locked && selectedPlayer) {
+          header.onclick = () => toggleDay(selectedPlayer, key);
+        }
 
+        card.appendChild(header);
+
+        // Players grid
         const grid = document.createElement("div");
         grid.className = "players-grid";
         const chips = document.createElement("div");
@@ -477,11 +477,14 @@
         PLAYERS.forEach(p => {
           const inFour   = four.includes(p);
           const isBumped = bumped.includes(p);
+          const isMe     = p === selectedPlayer;
           const chip = document.createElement("div");
-          chip.className = "chip" + (inFour ? " in-four" : isBumped ? " bumped" : "");
+          let chipClass = "chip" + (inFour ? " in-four" : isBumped ? " bumped" : "");
+          if (inFour && isMe) chipClass += " is-me";
+          chip.className = chipClass;
           chip.innerHTML = `
             <span class="chip-dot"></span>
-            <span class="chip-name${p === selectedPlayer ? " me" : ""}">${p}</span>
+            <span class="chip-name${isMe ? " me" : ""}">${p}</span>
             ${isBumped ? '<span class="bump-label">bump</span>' : ""}`;
           chips.appendChild(chip);
         });
@@ -529,7 +532,6 @@
 
   async function init() {
     document.getElementById("app").innerHTML = `<div class="overlay">Loading...</div>`;
-
     if (JSONBIN_API_KEY === "PASTE_YOUR_API_KEY_HERE" || JSONBIN_BIN_ID === "PASTE_YOUR_BIN_ID_HERE") {
       document.getElementById("app").innerHTML = `
         <div class="overlay" style="flex-direction:column;gap:12px;padding:24px;text-align:center">
@@ -541,7 +543,6 @@
         </div>`;
       return;
     }
-
     await loadData();
     render();
   }
