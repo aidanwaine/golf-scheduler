@@ -125,7 +125,6 @@
       filter: grayscale(40%);
     }
 
-    /* Day header — clickable when not locked and player selected */
     .day-header {
       display: flex;
       align-items: center;
@@ -142,7 +141,6 @@
     .day-header.clickable:hover {
       background: #1e3a5f;
     }
-    /* Highlight the day header when the current player is "in" */
     .day-header.i-am-in {
       background: #14532d;
       border-bottom-color: #166534;
@@ -168,7 +166,6 @@
       padding: 2px 8px;
     }
 
-    /* In/out indicator shown in header when player selected */
     .in-indicator {
       font-size: 12px;
       font-family: Georgia, serif;
@@ -203,7 +200,6 @@
       background: rgba(250,204,21,0.1);
       border-color: rgba(250,204,21,0.25);
     }
-    /* Extra highlight for the selected player's own chip when they're in */
     .chip.in-four.is-me {
       background: rgba(74,222,128,0.25);
       border-color: #22c55e;
@@ -252,14 +248,10 @@
 </head>
 <body>
 
-<!-- ═══════════════════════════════════════════
-     CONFIGURATION — fill in your JSONBin details
-     ═══════════════════════════════════════════ -->
 <script>
   const JSONBIN_API_KEY = "$2a$10$Kvd8UehpVRwWwke2zSkFeepA0RGwYC6JRsUIKtHz9nhe1cAJ0wycC";
   const JSONBIN_BIN_ID  = "6a270c31f5f4af5e29cd09f8";
 </script>
-<!-- ═══════════════════════════════════════════ -->
 
 <script>
   const PLAYERS        = ["Aidan", "Dave", "John", "Derrick", "Rob", "Julio"];
@@ -273,6 +265,7 @@
   let selectedPlayer = null;
   let saving         = false;
   let showLocked     = false;
+  let loadSucceeded  = false;   // guard: never save until we've had a clean load
 
   function nowPT() {
     const now   = new Date();
@@ -342,11 +335,23 @@
       });
       if (!r.ok) throw new Error(r.status);
       const j = await r.json();
-      availability = j.record || {};
+      // SAFE LOAD: only accept if it's a non-null object, never replace with empty
+      const loaded = j.record;
+      if (loaded && typeof loaded === "object" && !Array.isArray(loaded)) {
+        availability = loaded;
+      }
+      // If loaded is empty {} that's still valid — but we never overwrite with null/undefined
+      loadSucceeded = true;   // mark that we got a real response from JSONBin
     } catch (e) { console.error("Load failed", e); }
   }
 
   async function saveData() {
+    // SAFETY GUARD: never write to JSONBin unless we successfully loaded first.
+    // This prevents a failed/slow load from causing us to overwrite real data with {}.
+    if (!loadSucceeded) {
+      console.warn("Save blocked: load has not succeeded yet.");
+      return;
+    }
     saving = true; updateFooter();
     try {
       await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`, {
@@ -358,11 +363,22 @@
     saving = false; updateFooter();
   }
 
+  async function toggleDay(player, key) {
+    if (!player) return;
+    if (!availability[key]) availability[key] = {};
+    availability[key][player] = !availability[key][player];
+    // Clean up empty date entries to keep the bin tidy
+    if (Object.keys(availability[key]).every(k => !availability[key][k])) {
+      delete availability[key];
+    }
+    render();
+    await saveData();
+  }
+
   function render() {
     const app = document.getElementById("app");
     app.innerHTML = "";
 
-    // Header
     const hdr = document.createElement("div");
     hdr.className = "header";
     hdr.innerHTML = `
@@ -373,7 +389,6 @@
       </div>`;
     app.appendChild(hdr);
 
-    // Player selector
     const playerSection = document.createElement("div");
     playerSection.className = "section";
     playerSection.innerHTML = `<div class="label">👇 First, tap your name...</div>`;
@@ -394,7 +409,6 @@
     playerSection.appendChild(hint);
     app.appendChild(playerSection);
 
-    // Show locked toggle
     const { days } = getSchedule();
     const lockedDays = days.filter(d => isLocked(d.date));
     if (lockedDays.length > 0) {
@@ -412,7 +426,6 @@
 
     const visibleDays = days.filter(d => showLocked || !isLocked(d.date));
 
-    // Group into weeks
     const weeks = [];
     let current = [];
     visibleDays.forEach(d => {
@@ -437,7 +450,6 @@
         const card = document.createElement("div");
         card.className = "day-card" + (locked ? " locked" : "");
 
-        // Day header
         const full      = four.length >= 4;
         const countText = `${four.length}/4${bumped.length ? ` · ${bumped.length} bump` : ""}`;
 
@@ -447,7 +459,6 @@
         if (!locked && isMyDay) headerClass += " i-am-in";
         header.className = headerClass;
 
-        // In/out indicator (only when player selected and not locked)
         const indicatorHTML = (!locked && selectedPlayer)
           ? `<span class="in-indicator${isMyDay ? " in" : ""}">${isMyDay ? "✓ I'm in" : "Tap to join"}</span>`
           : locked ? `<span class="locked-badge">🔒 Locked</span>` : "";
@@ -468,7 +479,6 @@
 
         card.appendChild(header);
 
-        // Players grid
         const grid = document.createElement("div");
         grid.className = "players-grid";
         const chips = document.createElement("div");
@@ -520,14 +530,6 @@
   function updateFooter() {
     const f = document.getElementById("footer");
     if (f) f.textContent = saving ? "Saving..." : "Changes saved automatically";
-  }
-
-  async function toggleDay(player, key) {
-    if (!player) return;
-    if (!availability[key]) availability[key] = {};
-    availability[key][player] = !availability[key][player];
-    render();
-    await saveData();
   }
 
   async function init() {
