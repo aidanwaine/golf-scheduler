@@ -257,8 +257,9 @@
   const PLAYERS        = ["Aidan", "Dave", "John", "Derrick", "Rob", "Julio"];
   const GOLF_DAYS      = [2, 4];
   const GOLF_DAY_NAMES = { 2: "Tuesday", 4: "Thursday" };
-  const BOOKING_DAYS_AHEAD = 5;
-  const BOOKING_HOUR_PT    = 7;
+  const BOOKING_DAYS_AHEAD  = 5;
+  const BOOKING_HOUR_PT     = 6;
+  const BOOKING_MINUTE_PT   = 55;
   const WEEKS_AHEAD        = 8;
 
   let availability   = {};
@@ -275,7 +276,7 @@
       hour: "2-digit", minute: "2-digit", hour12: false
     }).formatToParts(now);
     const get = t => parseInt(parts.find(p => p.type === t).value);
-    return { year: get("year"), month: get("month"), day: get("day"), hour: get("hour") };
+    return { year: get("year"), month: get("month"), day: get("day"), hour: get("hour"), minute: get("minute") };
   }
 
   function daysBetween(a, b) {
@@ -289,7 +290,7 @@
     const gd = { year: golfDate.getFullYear(), month: golfDate.getMonth() + 1, day: golfDate.getDate() };
     const diff = daysBetween(pt, gd);
     if (diff > BOOKING_DAYS_AHEAD) return false;
-    if (diff === BOOKING_DAYS_AHEAD) return pt.hour >= BOOKING_HOUR_PT;
+    if (diff === BOOKING_DAYS_AHEAD) return pt.hour > BOOKING_HOUR_PT || (pt.hour === BOOKING_HOUR_PT && pt.minute >= BOOKING_MINUTE_PT);
     return true;
   }
 
