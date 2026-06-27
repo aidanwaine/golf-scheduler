@@ -346,34 +346,57 @@
     } catch (e) { console.error("Load failed", e); }
   }
 
-  async function saveData() {
-    // SAFETY GUARD: never write to JSONBin unless we successfully loaded first.
-    // This prevents a failed/slow load from causing us to overwrite real data with {}.
-    if (!loadSucceeded) {
-      console.warn("Save blocked: load has not succeeded yet.");
-      return;
-    }
-    saving = true; updateFooter();
-    try {
-      await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json", "X-Master-Key": JSONBIN_API_KEY },
-        body: JSON.stringify(availability)
-      });
-    } catch (e) { console.error("Save failed", e); }
-    saving = false; updateFooter();
-  }
-
   async function toggleDay(player, key) {
     if (!player) return;
+    if (!loadSucceeded) {
+      console.warn("Toggle blocked: initial load has not succeeded.");
+      return;
+    }
+
+    // Optimistically update local state and re-render immediately for snappy UI
     if (!availability[key]) availability[key] = {};
-    availability[key][player] = !availability[key][player];
-    // Clean up empty date entries to keep the bin tidy
+    const newValue = !availability[key][player];
+    availability[key][player] = newValue;
     if (Object.keys(availability[key]).every(k => !availability[key][k])) {
       delete availability[key];
     }
     render();
-    await saveData();
+
+    // READ-MODIFY-WRITE: fetch the latest data from JSONBin, apply just
+    // this one change, then write back. This prevents concurrent users
+    // from overwriting each other's selections.
+    saving = true; updateFooter();
+    try {
+      // 1. Read current server state
+      const r = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}/latest`, {
+        headers: { "X-Master-Key": JSONBIN_API_KEY }
+      });
+      if (!r.ok) throw new Error("Read failed: " + r.status);
+      const j = await r.json();
+      const server = (j.record && typeof j.record === "object" && !Array.isArray(j.record))
+        ? j.record : {};
+
+      // 2. Apply just this player's change to the fresh server data
+      if (!server[key]) server[key] = {};
+      server[key][player] = newValue;
+      if (Object.keys(server[key]).every(k => !server[key][k])) {
+        delete server[key];
+      }
+
+      // 3. Write the merged result back
+      const w = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", "X-Master-Key": JSONBIN_API_KEY },
+        body: JSON.stringify(server)
+      });
+      if (!w.ok) throw new Error("Write failed: " + w.status);
+
+      // 4. Sync local state to what the server now holds
+      availability = server;
+      render();
+
+    } catch (e) { console.error("Save failed", e); }
+    saving = false; updateFooter();
   }
 
   function render() {
