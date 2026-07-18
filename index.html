@@ -244,13 +244,76 @@
       font-size: 15px;
       color: #64748b;
     }
+
+    .gate {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      gap: 16px;
+      padding: 24px;
+      text-align: center;
+    }
+    .gate h2 {
+      font-weight: normal;
+      font-size: 22px;
+      color: #f0fdf4;
+      letter-spacing: 0.04em;
+    }
+    .gate p { font-size: 13px; color: #94a3b8; max-width: 300px; }
+    .gate input {
+      font-family: Georgia, serif;
+      font-size: 16px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      border: 2px solid #334155;
+      background: #1e293b;
+      color: #e2e8f0;
+      width: 220px;
+      text-align: center;
+    }
+    .gate input:focus { outline: none; border-color: #22c55e; }
+    .gate button {
+      font-family: Georgia, serif;
+      font-size: 15px;
+      padding: 10px 24px;
+      border-radius: 999px;
+      border: 2px solid #22c55e;
+      background: #166534;
+      color: #f0fdf4;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .gate button:hover { background: #14532d; }
+    .gate-err { display: none; font-size: 13px; color: #f87171; }
   </style>
 </head>
 <body>
 
 <script>
-  const JSONBIN_API_KEY = "$2a$10$Kvd8UehpVRwWwke2zSkFeepA0RGwYC6JRsUIKtHz9nhe1cAJ0wycC";
-  const JSONBIN_BIN_ID  = "6a270c31f5f4af5e29cd09f8";
+  /* ============================================================================
+   * SECURITY — how this app authenticates to JSONBin
+   * ----------------------------------------------------------------------------
+   * GitHub Pages serves this file as public source, so WHATEVER key sits here is
+   * readable by anyone who opens dev tools. A static site with no backend cannot
+   * hide it. The goal is to LIMIT what a leaked key can do, not to conceal it.
+   *
+   * Do NOT use your account Master Key here — it can read/write/delete EVERY bin
+   * on your account. Use an ACCESS KEY with only the permissions this app needs.
+   *
+   * SETUP (required before deploy):
+   *   1. JSONBin dashboard -> API Keys -> Access Keys -> create a key with only
+   *      "Bin Read" + "Bin Update" enabled (no Create/Delete/account access).
+   *      If your plan can restrict a key to one bin, scope it to the id below.
+   *   2. Paste that key into JSONBIN_ACCESS_KEY (replacing the placeholder).
+   *   3. REVOKE/ROTATE the old Master Key that was previously exposed here.
+   *
+   * Even after this, treat the bin as semi-public: anyone with the page source
+   * can read and overwrite it. Don't store anything sensitive in it.
+   * ==========================================================================*/
+  const JSONBIN_ACCESS_KEY = "$2a$10$9Z58EbgW0QTrSaiL3Fm9h.29PDmHz3YdvViTukmVizGXn1RLc0xam";
+  const JSONBIN_BIN_ID     = "6a270c31f5f4af5e29cd09f8";
 </script>
 
 <script>
@@ -332,7 +395,7 @@
   async function loadData() {
     try {
       const r = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}/latest`, {
-        headers: { "X-Master-Key": JSONBIN_API_KEY }
+        headers: { "X-Access-Key": JSONBIN_ACCESS_KEY }
       });
       if (!r.ok) throw new Error(r.status);
       const j = await r.json();
@@ -369,7 +432,7 @@
     try {
       // 1. Read current server state
       const r = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}/latest`, {
-        headers: { "X-Master-Key": JSONBIN_API_KEY }
+        headers: { "X-Access-Key": JSONBIN_ACCESS_KEY }
       });
       if (!r.ok) throw new Error("Read failed: " + r.status);
       const j = await r.json();
@@ -386,7 +449,7 @@
       // 3. Write the merged result back
       const w = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json", "X-Master-Key": JSONBIN_API_KEY },
+        headers: { "Content-Type": "application/json", "X-Access-Key": JSONBIN_ACCESS_KEY },
         body: JSON.stringify(server)
       });
       if (!w.ok) throw new Error("Write failed: " + w.status);
@@ -556,21 +619,76 @@
     if (f) f.textContent = saving ? "Saving..." : "Changes saved automatically";
   }
 
-  async function init() {
+  // ---- Password gate (client-side) ------------------------------------------
+  // NOTE: this is a soft gate only — see the security header at the top of the
+  // file. The stored value is a salted SHA-256 hash, so the plaintext password
+  // is not in the source. To change the password, recompute the hash:
+  //   printf '%s' 'foursome-v1::YOURNEWPASSWORD' | sha256sum
+  // and paste the hex digest into PASSWORD_HASH below.
+  const PASSWORD_SALT = "foursome-v1::";
+  const PASSWORD_HASH = "316246bed2894880744b5f80a9f378c04844bb12cfcf80b1f4cdeb15424b7871";
+  const UNLOCK_KEY    = "foursome_unlocked";
+
+  async function sha256Hex(str) {
+    const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
+    return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("");
+  }
+
+  // Remembers the unlock per-device by storing the hash itself, so changing the
+  // password automatically invalidates everyone's remembered unlock.
+  function isUnlocked() {
+    return localStorage.getItem(UNLOCK_KEY) === PASSWORD_HASH;
+  }
+
+  function showGate() {
+    const app = document.getElementById("app");
+    app.innerHTML = `
+      <div class="gate">
+        <div style="font-size:32px">⛳</div>
+        <h2>The Foursome</h2>
+        <p>Enter the group password to continue.</p>
+        <input id="gate-pw" type="password" placeholder="Password" autocomplete="off" />
+        <button id="gate-go">Enter</button>
+        <div id="gate-err" class="gate-err">Wrong password — try again.</div>
+      </div>`;
+    const input = document.getElementById("gate-pw");
+    const err   = document.getElementById("gate-err");
+    const attempt = async () => {
+      const h = await sha256Hex(PASSWORD_SALT + input.value);
+      if (h === PASSWORD_HASH) {
+        localStorage.setItem(UNLOCK_KEY, PASSWORD_HASH);
+        startApp();
+      } else {
+        err.style.display = "block";
+        input.value = "";
+        input.focus();
+      }
+    };
+    document.getElementById("gate-go").onclick = attempt;
+    input.addEventListener("keydown", e => { if (e.key === "Enter") attempt(); });
+    input.focus();
+  }
+
+  async function startApp() {
     document.getElementById("app").innerHTML = `<div class="overlay">Loading...</div>`;
-    if (JSONBIN_API_KEY === "PASTE_YOUR_API_KEY_HERE" || JSONBIN_BIN_ID === "PASTE_YOUR_BIN_ID_HERE") {
+    if (JSONBIN_ACCESS_KEY === "PASTE_YOUR_BIN_ACCESS_KEY_HERE" || JSONBIN_BIN_ID === "PASTE_YOUR_BIN_ID_HERE") {
       document.getElementById("app").innerHTML = `
         <div class="overlay" style="flex-direction:column;gap:12px;padding:24px;text-align:center">
           <div style="font-size:18px;color:#f87171">⚠️ Setup needed</div>
           <div style="font-size:13px;color:#94a3b8;max-width:300px">
-            Open this file and replace the two placeholder values near the top
-            with your JSONBin API key and Bin ID.
+            Open this file and paste your JSONBin Access Key into
+            JSONBIN_ACCESS_KEY near the top.
           </div>
         </div>`;
       return;
     }
     await loadData();
     render();
+  }
+
+  function init() {
+    if (isUnlocked()) startApp();
+    else showGate();
   }
 
   document.addEventListener("DOMContentLoaded", init);
