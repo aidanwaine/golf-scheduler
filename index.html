@@ -104,6 +104,20 @@
     }
     .locked-toggle-btn:hover { border-color: #475569; color: #94a3b8; }
 
+    .backup-btn {
+      margin-top: 12px;
+      background: none;
+      border: 1px solid #334155;
+      color: #64748b;
+      font-size: 12px;
+      font-family: Georgia, serif;
+      padding: 6px 14px;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .backup-btn:hover { border-color: #22c55e; color: #4ade80; }
+
     .week { padding: 16px 16px 0; }
     .week-label {
       font-size: 11px;
@@ -462,6 +476,19 @@
     saving = false; updateFooter();
   }
 
+  // One-tap backup: save the currently loaded shared data as a JSON file.
+  // Read-only (no network, no writes) — cannot affect the server data.
+  function downloadBackup() {
+    const blob = new Blob([JSON.stringify(availability, null, 2)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "foursome-backup-" + new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-") + ".json";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(a.href);
+  }
+
   function render() {
     const app = document.getElementById("app");
     app.innerHTML = "";
@@ -494,6 +521,16 @@
     hint.textContent = "Now tap a date below to toggle your availability";
     if (selectedPlayer) hint.style.display = "block";
     playerSection.appendChild(hint);
+
+    // Backup button — only visible when Aidan is the selected golfer.
+    if (selectedPlayer === "Aidan") {
+      const backupBtn = document.createElement("button");
+      backupBtn.className = "backup-btn";
+      backupBtn.textContent = "⬇ Backup data";
+      backupBtn.onclick = downloadBackup;
+      playerSection.appendChild(backupBtn);
+    }
+
     app.appendChild(playerSection);
 
     const { days } = getSchedule();
