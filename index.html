@@ -406,6 +406,18 @@
     return { four, bumped };
   }
 
+  // ---- Local cache: lets the app paint instantly even when JSONBin is slow ----
+  const CACHE_KEY = "foursome_cache";
+  function saveCache(data) {
+    try { localStorage.setItem(CACHE_KEY, JSON.stringify(data)); } catch (e) {}
+  }
+  function loadCache() {
+    try {
+      const d = JSON.parse(localStorage.getItem(CACHE_KEY));
+      return (d && typeof d === "object" && !Array.isArray(d)) ? d : null;
+    } catch (e) { return null; }
+  }
+
   async function loadData() {
     try {
       const r = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}/latest`, {
@@ -417,6 +429,7 @@
       const loaded = j.record;
       if (loaded && typeof loaded === "object" && !Array.isArray(loaded)) {
         availability = loaded;
+        saveCache(loaded);    // remember for an instant load next time
       }
       // If loaded is empty {} that's still valid — but we never overwrite with null/undefined
       loadSucceeded = true;   // mark that we got a real response from JSONBin
@@ -470,6 +483,7 @@
 
       // 4. Sync local state to what the server now holds
       availability = server;
+      saveCache(server);
       render();
 
     } catch (e) { console.error("Save failed", e); }
@@ -707,7 +721,6 @@
   }
 
   async function startApp() {
-    document.getElementById("app").innerHTML = `<div class="overlay">Loading...</div>`;
     if (JSONBIN_ACCESS_KEY === "PASTE_YOUR_BIN_ACCESS_KEY_HERE" || JSONBIN_BIN_ID === "PASTE_YOUR_BIN_ID_HERE") {
       document.getElementById("app").innerHTML = `
         <div class="overlay" style="flex-direction:column;gap:12px;padding:24px;text-align:center">
@@ -718,6 +731,16 @@
           </div>
         </div>`;
       return;
+    }
+    // Cache-first: paint the last-known data instantly, then refresh from the server.
+    // Writes stay blocked (loadSucceeded=false) until a fresh load succeeds, so a
+    // cached-only view can never overwrite the server.
+    const cached = loadCache();
+    if (cached) {
+      availability = cached;
+      render();
+    } else {
+      document.getElementById("app").innerHTML = `<div class="overlay">Loading...</div>`;
     }
     await loadData();
     render();
